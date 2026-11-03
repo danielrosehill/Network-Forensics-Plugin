@@ -1,0 +1,12 @@
+{
+  "name": "network-forensics",
+  "version": "0.1.0",
+  "description": "Network forensics for home and small networks: trace a device's egress at the firewall, document it, lock it down, verify.",
+  "author": {
+    "name": "Daniel Rosehill",
+    "url": "https://github.com/danielrosehill"
+  },
+  "repository": "https://github.com/danielrosehill/Network-Forensics-Plugin",
+  "license": "MIT",
+  "keywords": ["network-forensics", "iot", "ip-camera", "egress", "firewall", "opnsense", "packet-capture", "tshark", "onvif", "lockdown"]
+}
