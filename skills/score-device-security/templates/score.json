@@ -1,0 +1,24 @@
+{
+  "device": "<Vendor Model>",
+  "dossier": "devices/<file>.md",
+  "rubric_version": 1,
+  "assessed": "YYYY-MM-DD",
+  "criteria": {
+    "L1": {"status": "unknown", "evidence": "none", "note": "Post-block test not run yet", "source": ""},
+    "L2": {"status": "unknown", "evidence": "none", "note": "", "source": ""},
+    "L3": {"status": "unknown", "evidence": "none", "note": "", "source": ""},
+    "L4": {"status": "unknown", "evidence": "none", "note": "", "source": ""},
+    "L5": {"status": "unknown", "evidence": "none", "note": "", "source": ""},
+    "L6": {"status": "unknown", "evidence": "none", "note": "", "source": ""},
+    "L7": {"status": "unknown", "evidence": "none", "note": "", "source": ""},
+    "E1": {"status": "unknown", "evidence": "none", "note": "", "source": ""},
+    "E2": {"status": "unknown", "evidence": "none", "note": "", "source": ""},
+    "E3": {"status": "unknown", "evidence": "none", "note": "", "source": ""},
+    "E4": {"status": "unknown", "evidence": "none", "note": "", "source": ""},
+    "E5": {"status": "unknown", "evidence": "none", "note": "", "source": ""},
+    "E6": {"status": "unknown", "evidence": "none", "note": "", "source": ""},
+    "E7": {"status": "unknown", "evidence": "none", "note": "", "source": ""},
+    "E8": {"status": "unknown", "evidence": "none", "note": "", "source": ""}
+  },
+  "other_observations": []
+}

@@ -197,6 +197,10 @@ addressing beyond placeholders like `<cam>` and `<lan>`.
 
 ## Phase 4: Remediate
 
+Phases 4-5 are expanded, with a 10 min / 1 h / 24 h test matrix, a reboot-while-blocked
+test and a `post-block.md` record, in the `verify-iot-lockdown` skill. Use it for
+anything you will publish or score. The short form follows.
+
 Confirm the rule set with the user before applying it. On the device's interface, at
 the **top** of the rule list, in this order:
 
@@ -235,6 +239,8 @@ On OPNsense, back up the config first; rules can be added by API (see references
   for a manual image only for a known fix.
 - Re-verify after router changes: new VLAN, IPv6 enablement, rule reorder, firmware
   upgrade.
+- Score the device with `score-device-security` (Local-Only Security Rubric) once the
+  findings exist, and re-score after `verify-iot-lockdown`.
 - For the next device of the same family, reuse the dossier and diff its egress
   against the earlier findings.
 
