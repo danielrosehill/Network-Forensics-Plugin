@@ -7,6 +7,8 @@ Starting points, not proof. Record which signal you matched.
 | 34567/tcp (DVRIP / NetSurveillance) | Xiongmai (XM, JF Tech) firmware; XMEye / iCSee apps |
 | Firmware string `V5.xx.Rxx...` | Xiongmai |
 | Web UI references `jftechws.com`, `xmeye.net`, `xmcsrv.net` | Xiongmai cloud |
+| DNS for `secu100.net`, `pub-cfg.secu100.net`, `caps.secu100.net` at boot | Xiongmai XMEye / "secu100" cloud (seen 2026-11-03) |
+| TCP 8186 to the `secu100.net` host, UDP 7999 to `caps.`, TCP 8386 to Alibaba Cloud | Xiongmai cloud entry, capabilities, relay broker (seen 2026-11-03) |
 | 8899/tcp ONVIF | common on Xiongmai and other generic firmware |
 | 8765/udp outbound every ~13 s, 33-byte datagrams with the serial in ASCII | Xiongmai cloud registration keep-alive (seen 2026-11-03) |
 | 6611/tcp outbound to UCloud during app viewing | Xiongmai relay carrying the live stream (seen 2026-11-03) |

@@ -93,17 +93,37 @@ bitrate, and whether the media is encrypted (see payload inspection below).
 Idle and live captures usually contain **no DNS at all**: the device resolved its
 servers long ago and caches them. A capture across a power cycle gets them.
 
-1. Start the capture, then have the user unplug the device, wait 10 s, plug it back
-   in, and say when it is back in the NVR or app (about 2-3 minutes; the device is off
-   for about one).
+1. **Close the app first** (a relay session otherwise muddies the boot sequence). Start
+   the capture, then have the user unplug the device, wait 10 s, plug it back in, and
+   say when it is back in the NVR or app. A camera is typically back on the network
+   ~10 s after power returns and through its whole startup within ~40 s; capture 2-3
+   minutes to be safe.
 2. Read from it:
    - **DNS names**: cheap devices often ask a hard-coded public resolver in plain UDP
      53, so every name is visible. Names outlive IPs, so they are the most reusable
      finding: others with the same device can match or block them.
-   - **Firmware-update check**: often plain HTTP at startup, exposing the update
-     server and how the device reports its version.
-   - **Startup order**: DHCP, NTP, DNS, cloud sign-in, then the keep-alives.
-3. It may cache names or skip the update check; say so if the reboot adds nothing.
+   - **Hard-coded IPs**: every remote IP contacted that **no DNS answer in the capture
+     produced** (command below). Usually most of the cloud plumbing. This is the proof
+     that DNS blocking alone cannot work.
+   - **Firmware-update check**: plain HTTP at startup if you are lucky, exposing the
+     update server; often it rides TLS or the control channel instead. Say which.
+   - **Boot order**: first packet of each new flow (command below).
+3. The capture filtered on the device IP misses **DHCP** (it has no IP yet). For the
+   DHCP hostname and vendor class, capture `port 67 or port 68` separately, or read the
+   router's DHCP lease log.
+4. It may cache names or skip the update check; say so if the reboot adds nothing.
+
+```bash
+# boot order: first packet of each flow
+tshark -r boot.pcap -T fields -e frame.time_relative -e _ws.col.Protocol -e ip.dst -e udp.dstport -e tcp.dstport \
+  | awk '!seen[$3" "$4$5]++' | head -40
+# hard-coded IPs: remote IPs never returned by a DNS answer
+comm -23 <(tshark -r boot.pcap -T fields -e ip.dst | grep -vE '^(10|192\.168|172\.(1[6-9]|2[0-9]|3[01]))\.|^(22[4-9]|23[0-9])\.' | sort -u) \
+         <(tshark -r boot.pcap -Y 'dns.flags.response==1' -T fields -e dns.a | tr ',' '\n' | sort -u)
+```
+
+Remove the public resolvers and ICMP check targets from that list by hand; what is
+left was dialled by IP.
 
 ### Monitor DNS
 
@@ -223,4 +243,5 @@ On OPNsense, back up the config first; rules can be added by API (see references
 - `references/opnsense-api.md`: state table, packet capture, states kill, rules via API.
 - `references/probing.md`: ONVIF queries, RTSP probe, web-UI hostname grep.
 - `references/fingerprints.md`: ports and strings that identify common camera/IoT platforms.
+- `references/example-xiongmai-gk7205v500.md`: a full worked run (idle, live view, boot).
 - `templates/device-dossier.md`, `templates/findings.md`.
