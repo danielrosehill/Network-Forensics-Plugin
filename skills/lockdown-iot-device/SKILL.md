@@ -49,45 +49,120 @@ is in, the interesting traffic stops and can no longer be studied.
      resolution. Compare with the listing's claims (an "8MP" listing streaming
      2880x1616 is the 5MP variant).
    - Purchase channel: store, listing URL, variant, price, date.
+   - Companion app: name, and Android package ID (from the Play Store link, or
+     `adb shell pm list packages` with the phone plugged in). Listings often show other
+     products' apps; take the app from the box or the user.
 4. Write `devices/<platform>-<model>.md` from `templates/device-dossier.md`.
 
 ## Phase 2: Observe its egress (before blocking)
 
-1. **State-table snapshot** for the device IP: every live flow, its peer, port, state
-   and NAT translation. This is the fastest way to see the cloud path. OPNsense:
-   Firewall → Diagnostics → States, or `query_states` (see references).
-2. **Packet capture** of device↔internet only, on the LAN-side interface, filter
-   `host <dev> and not net <lan-cidr>`, snaplen 1500, 30–60 minutes. While it runs,
-   have the user exercise the cloud path: open the vendor app **on mobile data, not
-   Wi-Fi**, view live, move PTZ, trigger a motion alert, then close the app. Note the
-   times of each action so bursts can be matched later. Also capture a quiet period
-   with nobody watching (does video leave the house unprompted?).
-3. **Attribute every remote IP**: `whois <ip> | grep -iE 'netname|orgname|descr|country|route'`.
-   Cloud-hosted vendors show up as Huawei Cloud, Alibaba, Tencent, AWS; record the
-   hosting owner *and* what the flow appears to be.
-4. **Pull names out of the capture** (the device may bypass the LAN resolver, so LAN
-   DNS logs show nothing):
-   ```bash
-   tshark -r cap.pcap -Y dns.flags.response==0 -T fields -e ip.dst -e dns.qry.name | sort | uniq -c
-   tshark -r cap.pcap -Y tls.handshake.extensions_server_name -T fields -e ip.dst -e tls.handshake.extensions_server_name | sort -u
-   tshark -r cap.pcap -q -z conv,udp -z conv,tcp      # who, how much, how long
-   tshark -r cap.pcap -q -z io,stat,60                 # traffic per minute, for bursts
-   ```
-5. **Read the pattern**, not just the list: long-lived bidirectional UDP to one host =
-   P2P keep-alive / NAT pinhole; a persistent TCP session = control/relay channel;
-   short TCP to the same host on other ports = status/report channels; direct UDP 53
-   to a public resolver = hard-coded DNS; ICMP echo to 8.8.8.8 / 114.114.114.114 =
-   "am I online" checks. Large outbound bursts that line up with app viewing = the
-   stream is relayed through the cloud.
+Observe in **three windows**, each with its own capture, because each shows things the
+others miss: **idle** (what it does on its own), **live remote view** (how the app
+reaches it) and **reboot** (the names it resolves and what it calls at startup).
+Nothing is blocked during this phase, so the app keeps working; tell the user that up
+front, or "it still works in the app" reads as a failed block.
+
+### Capture setup (all windows)
+
+- Capture on the LAN-side interface (before NAT), device traffic only. Keep the filter
+  **simple**: a plain `host <dev>`, excluding the NVR's local pull by port (e.g. not
+  554). On OPNsense the capture `host` field silently rejects compound expressions such
+  as `<dev> and not net <lan>`: the job runs but writes an empty pcap (24-byte header).
+- **Check the pcap is growing within the first minute** (`search_jobs` size, or a quick
+  `tcpdump -r cap.pcap -c 5`). Don't find out it was empty after the user's test.
+- Alongside the capture, **snapshot the state table every ~20 s** during the active
+  windows. Short-lived relay hops show up there even when the capture misses them.
+- Note the wall-clock time of every user action, so bursts can be matched later.
+
+### Window 1: idle
+
+State table snapshot, then a 15-30 minute capture with nobody using the app. Answers:
+which hosts it keeps sessions with, keep-alive interval, whether video or audio leaves
+the house when nobody is watching.
+
+### Window 2: live remote view
+
+The user puts the phone **on mobile data (Wi-Fi off)**, opens the vendor app, watches
+live for 1-2 minutes, moves PTZ, tries talk-back, then closes the app and says "done".
+Answers: the session broker, whether a P2P hole-punch is attempted and whether it gets
+a reply, which relays carry the stream (often several in turn, in different regions),
+bitrate, and whether the media is encrypted (see payload inspection below).
+
+### Window 3: reboot (DNS and startup)
+
+Idle and live captures usually contain **no DNS at all**: the device resolved its
+servers long ago and caches them. A capture across a power cycle gets them.
+
+1. Start the capture, then have the user unplug the device, wait 10 s, plug it back
+   in, and say when it is back in the NVR or app (about 2-3 minutes; the device is off
+   for about one).
+2. Read from it:
+   - **DNS names**: cheap devices often ask a hard-coded public resolver in plain UDP
+     53, so every name is visible. Names outlive IPs, so they are the most reusable
+     finding: others with the same device can match or block them.
+   - **Firmware-update check**: often plain HTTP at startup, exposing the update
+     server and how the device reports its version.
+   - **Startup order**: DHCP, NTP, DNS, cloud sign-in, then the keep-alives.
+3. It may cache names or skip the update check; say so if the reboot adds nothing.
+
+### Monitor DNS
+
+The device may bypass the LAN resolver, so the LAN DNS logs show nothing; read DNS from
+the captures:
+
+```bash
+tshark -r cap.pcap -Y 'dns.flags.response==0' -T fields -e frame.time_relative -e ip.dst -e dns.qry.name
+tshark -r cap.pcap -Y 'dns.flags.response==1' -T fields -e dns.qry.name -e dns.a | sort -u   # name -> IPs
+tshark -r cap.pcap -Y 'udp.port==53 && !(ip.dst==<router>)' -T fields -e ip.dst | sort | uniq -c   # resolvers it uses
+```
+
+Join `dns.a` against the flow table so each remote IP gets its name. Also check DoH/DoT
+(TCP 853, or 443 to a known resolver IP): that hides names even from a capture.
+
+### Attribute and read the traffic
+
+```bash
+whois <ip> | grep -iE 'netname|orgname|descr|country|route'
+tshark -r cap.pcap -Y tls.handshake.extensions_server_name -T fields -e ip.dst -e tls.handshake.extensions_server_name | sort -u
+tshark -r cap.pcap -q -z conv,udp -z conv,tcp      # who, how much, how long
+tshark -r cap.pcap -q -z io,stat,10                # traffic per 10 s, to match user actions
+tshark -r cap.pcap -Y 'http.request' -T fields -e ip.dst -e http.host -e http.request.uri   # plain HTTP (firmware checks)
+```
+
+Record the hosting owner *and* the role of each flow. Patterns (more in
+`references/fingerprints.md`): long-lived bidirectional UDP to one host = registration
+keep-alive / NAT pinhole; a persistent TCP session = control channel; one unanswered UDP
+datagram when the app opens = failed P2P hole-punch; large outbound TCP lining up with
+viewing = relayed stream; direct UDP 53 to a public resolver = hard-coded DNS; ICMP to
+8.8.8.8 / 114.114.114.114 = "am I online" checks.
+
+### Payload inspection
+
+Check whether what leaves the house is encrypted, without decoding anything further
+than needed:
+
+```bash
+tshark -r cap.pcap -Y 'ip.dst==<peer>' -T fields -e data.data | head        # keep-alive bytes
+tshark -r cap.pcap -q -z follow,tcp,raw,<stream#> | xxd | head -40           # relay stream
+strings -n 8 cap.pcap | sort | uniq -c | sort -rn | head                     # plaintext IDs, hosts
+```
+
+Look for the device serial / cloud ID in plain ASCII in keep-alives, vendor media frame
+headers followed by codec start codes (plain video/audio), and A-law/µ-law silence runs
+(`0x55`/`0xD5`, `0xFF`/`0x7F`) that mark raw audio. Count frame types to see which parts,
+if any, are scrambled. Report what was seen, and mark decoding as not tested.
 
 ## Phase 3: Document
 
 Write `forensics/<YYYY-MM-DD>-<model>/findings.md` from `templates/findings.md`
 **before** touching the firewall:
 
-- Method (exact commands/API calls, interface, filter, duration, what the user did
-  and when).
-- A flow table: proto, destination, port, state, owner (whois), reading.
+- Method per window (idle, live view, reboot): exact commands/API calls, interface,
+  filter, duration, what the user did and when. One file per window is fine
+  (`findings.md`, `capture.md`, `reboot.md`).
+- A flow table: proto, destination, name (from DNS), port, state, owner (whois), reading.
+- Session sequence for the live view (broker, hole-punch, relays) and the boot order.
+- What is in the clear (IDs, audio, video) and what is not.
 - What it means in plain terms (e.g. "not reachable on the LAN but visible in the
   app" = both sides dial out to a broker; no port-forward is involved).
 - **Confirmed vs assumed** on every claim. Mark inferences *assumed*.

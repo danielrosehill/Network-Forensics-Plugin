@@ -31,7 +31,7 @@ takes a pcap-style host expression.
 ```bash
 JOB=$(api diagnostics/packet_capture/set -X POST -H 'Content-Type: application/json' -d '{
   "packetcapture": {"settings": {
-    "interface": "lan", "host": "'"$DEV"' and not net 192.168.1.0/24",
+    "interface": "lan", "host": "'"$DEV"'", "port_not": "1", "port": "554",
     "snaplen": "1500", "count": "0", "description": "device egress"}}}' | jq -r .uuid)
 api diagnostics/packet_capture/start/$JOB -X POST
 api diagnostics/packet_capture/search_jobs                # status, size
@@ -40,8 +40,20 @@ api diagnostics/packet_capture/download/$JOB -o captures/$(date +%F)-device.pcap
 api diagnostics/packet_capture/remove/$JOB -X POST
 ```
 
+Keep `host` a single address. A compound expression (`<dev> and not net <lan>`) is
+accepted but the job writes an empty pcap (24-byte header); seen on 26.7, 2026-11-03.
+Exclude local traffic with `port_not`/`port` instead (554 = the NVR's RTSP pull) and
+filter the rest in tshark. Check the size in `search_jobs` within the first minute.
+
 Use the interface the device's traffic enters on (the LAN or bridge, not WAN, or the
 source address is already NATed). If `count: 0` is rejected, set a large count.
+
+## State-table polling (during the live-view window)
+
+```bash
+while sleep 20; do date +%T; api diagnostics/firewall/query_states -X POST -d "searchPhrase=$DEV" \
+  | jq -r '.rows[] | [.proto, .dst_addr // .dst, .state // .descr] | @tsv'; done | tee captures/states-$(date +%F).log
+```
 
 ## Kill states (after the block rule is in)
 

@@ -1,6 +1,6 @@
 {
   "name": "network-forensics",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Network forensics for home and small networks: trace a device's egress at the firewall, document it, lock it down, verify.",
   "author": {
     "name": "Daniel Rosehill",

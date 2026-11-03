@@ -8,7 +8,10 @@ Starting points, not proof. Record which signal you matched.
 | Firmware string `V5.xx.Rxx...` | Xiongmai |
 | Web UI references `jftechws.com`, `xmeye.net`, `xmcsrv.net` | Xiongmai cloud |
 | 8899/tcp ONVIF | common on Xiongmai and other generic firmware |
-| 8765/udp outbound, long-lived | Xiongmai cloud P2P keep-alive (seen 2026-11-03) |
+| 8765/udp outbound every ~13 s, 33-byte datagrams with the serial in ASCII | Xiongmai cloud registration keep-alive (seen 2026-11-03) |
+| 6611/tcp outbound to UCloud during app viewing | Xiongmai relay carrying the live stream (seen 2026-11-03) |
+| 34569/udp broadcast on the LAN | Xiongmai local discovery |
+| Stream frames starting `00 00 01 FC` / `FD` / `FA` / `F9` | Xiongmai media framing: I-frame / P-frame / audio / info |
 | 32100/udp, 32108/udp | CS2 Network PPPP / iLnkP2P family |
 | 6668/tcp, 6666-6667/udp | Tuya |
 | 8000/tcp (SDK) | Hikvision and its OEM rebrands |
@@ -29,6 +32,10 @@ Starting points, not proof. Record which signal you matched.
 | ICMP echo to public resolvers | connectivity ("online") check |
 | Large outbound bursts lining up with app viewing | stream relayed through the cloud |
 | TCP 443 with SNI of a vendor API | config, time, push, firmware |
+| One UDP datagram to a cloud host when the app opens, no reply | failed P2P hole-punch; the session falls back to relay |
+| Short TCP to a different provider just before the stream starts | session broker / relay assignment |
+| Plain HTTP GET at boot | firmware-update check |
+| No DNS in idle or live captures | names cached since boot; capture a reboot |
 
 ## Background reading
 

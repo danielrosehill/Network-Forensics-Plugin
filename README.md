@@ -6,6 +6,9 @@ talking to, write it down, then lock it down and prove the lockdown works.
 ## Skills
 
 - `lockdown-iot-device`: keep an IoT device (IP camera, smart plug, hub) local-only.
+  Observes in three windows (idle, live remote view on mobile data, reboot for DNS
+  names and the firmware check), monitors DNS from the capture and checks payloads
+  for cleartext IDs, audio and video.
   Probe the hardware (OUI, ports, ONVIF, web UI, RTSP), capture and trace its cloud
   egress at the firewall (state table, packet capture, whois, DNS/SNI from the pcap),
   document the findings, apply block rules (incl. IPv6, UPnP, hard-coded DNS), kill
